@@ -1,6 +1,6 @@
 # build the slides / docs
-Sphinx
-Hieroglyph
+Sphinx==1.2.2
+Hieroglyph-0.6.5
 Flask
 livereload
 formic
