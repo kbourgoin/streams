@@ -15,14 +15,6 @@ Backend Lead @ Parse.ly
 
     <br />
 
-Agenda
-======
-
-* Who we are
-* Organizing around logs (Kafka)
-* Aggregating the stream (Storm)
-* Real-time vs Batch tensions
-
 What is Parse.ly?
 =================
 
@@ -67,6 +59,7 @@ To Create a Cohesive Picture
 ======================
 Organizing around logs
 ======================
+
 
 More than Webserver Logs
 ========================
