@@ -61,6 +61,11 @@ Organizing around logs
 ======================
 
 
+.. note::
+
+    * Jay Kreps and log centric architecture
+
+
 More than Webserver Logs
 ========================
 
@@ -75,6 +80,12 @@ More than Webserver Logs
     * MySQL: transaction logs
     * Nginx: access logs
 
+.. note::
+
+    * Could just be information, or could be more
+    * Consider user event streams
+    * Logging into site, activating integration
+
 
 LinkedIn's lattice problem
 ==========================
@@ -87,6 +98,13 @@ LinkedIn's lattice problem
 
 Over time, every system will want to consume data from every other system.
 
+
+.. note::
+
+    * Systems reacting to other systems
+    * Monitoring, etc
+    * User logs in, warm ES queries
+
 Enter the unified log
 =====================
 
@@ -96,14 +114,10 @@ Enter the unified log
         :width: 100%
         :align: center
 
-Log-centric is simpler
-======================
+.. note::
 
-.. rst-class:: spaced
-
-    .. image:: ./_static/log_centric.png
-        :width: 65%
-        :align: center
+    * "How do I make this available?"
+    * "Where do I go to get that information?"
 
 Parse.ly is log-centric, too
 ============================
@@ -114,6 +128,11 @@ Parse.ly is log-centric, too
         :width: 80%
         :align: center
 
+
+.. note::
+
+    * Canonical: user events in nginx logs
+
 Introducing Kafka
 =================
 
@@ -123,9 +142,16 @@ Feature         Description
 Speed           100's of megabytes of reads/writes per sec from 1000's of clients
 Durability      Can use your entire disk to create a massive message backlog
 Scalability     Cluster-oriented design allows for horizontal machine scaling
-Availability    Cluster-oriented design allows for node failures without data loss (in 0.8+)
+Availability    Cluster-oriented design allows for node failures without data loss
 Multi-consumer  Many clients can read the same stream with no penalty
 =============== ==================================================================
+
+.. note::
+
+    * What could handle that volume?
+    * Terabytes of log data every day
+    * Realtime distribution of data (no uploads to S3)
+    * Kafka is...
 
 Kafka concepts
 ==============
@@ -138,7 +164,6 @@ Producer        Procs that publish msgs to stream
 Consumer        Procs that subscribe to msgs from stream
 Broker          An individual node in the Cluster
 Cluster         An arrangement of Brokers & Zookeeper nodes
-Offset          Coordinated state between Consumers and Brokers (in Zookeeper)
 =============== ==================================================================
 
 Kafka layout
@@ -149,6 +174,10 @@ Kafka layout
     .. image:: ./_static/kafka_topology.png
         :width: 80%
         :align: center
+
+.. note::
+    * Some of this is behind the scenes since 0.8
+    * Zookeeper is...
 
 Kafka is a "distributed log"
 ============================
@@ -177,6 +206,12 @@ Multi-consumer
 Even if Kafka's availability and scalability story isn't interesting to you,
 the **multi-consumer story should be**.
 
+.. note::
+
+    * Almost zero ovhead for adding new consumers
+    * vs RabbitMQ: No enqueue, task-in-progress, task-complete
+    * vs pub/sub: disk backed
+
 
 Introducing PyKafka
 ===================
@@ -189,8 +224,16 @@ Introducing PyKafka
 
 * Includes implementation of a balancing consumer
 
-<TODO: Insert Benchmark Data> |br|
-(sorry, it's not done for tonight's presentation)
+* v1.0.0 released this morning!
+
+* Currently in production use at Parse.ly
+
+.. note::
+
+    * ~20k in, ~100k out. 3 AWS instances.
+    * (with replication) ~100/250mbps in/out
+    * We swamped networking *first*
+
 
 PyKafka in Action
 =================
@@ -233,15 +276,31 @@ You could use RabbitMQ or another worker/queue system.
 
 We tried that.
 
+.. note::
+
+    * Now that you have all your logs in this super fast service,
+      what do you do with it?
+    * You *can* do worker/queue, but ops is non-trivial
+
 
 Worker problems
 ===============
 
-* no control for parallelism and load distribution
+* tedious to tune parallelism and load distribution
 * no guaranteed processing for multi-stage pipelines
 * no fault tolerance for individual stages
 * difficult to do local / beta / staging environments
 * dependencies between worker stages are unclear
+
+.. note::
+
+    * A series of surmountable headaches
+    * Some of these are answered by Kafka
+
+      * Data moving between stages
+
+    * Everyone using it needs some basic understanding of the ops story.
+
 
 Meanwhile, in Batch land...
 ===========================
@@ -256,6 +315,15 @@ We use Apache Pig, and I can get all the gurantees I need, and scale up on EMR.
 
 ... but, no ability to do this in real-time on the stream! :(
 
+.. note::
+
+    * I upload my logs to S3, I use spot pricing to keep the costs down and
+      then I get the results sometime the following day.  :-\\
+    * The code gets where it needs to be when it needs to be there.
+    * Yarn is handling provisioning.
+    * For the most part, it just works.
+    * *I don't need to know ops in order to use it*.
+
 Introducing Storm
 =================
 
@@ -263,7 +331,15 @@ Storm is a **distributed real-time computation system**.
 
 Hadoop provides a set of general primitives for doing batch processing.
 
-Storm provides a set of **general primitives** for doing **real-time computation**.
+Storm provides a set of general primitives for doing **real-time computation**.
+
+.. note::
+
+    * What if we could take the good parts of Pig/Hadoop and use them in a realtime system?
+    * Storm is...
+
+      * Distributed workers processing realtime streams
+      * Provisioning of workers and distribution of code.
 
 Hadoop primitives
 =================
@@ -291,13 +367,20 @@ Storm primitives
 
 **Tuneable parallelism** + built-in **fault tolerance**.
 
+.. note::
+
+    * Storm and Kafka, two great tastes that test great together
+    * Kafka is fast enough to provide data to Storm
+    * Storm is fast enough to process Kafka data
+
+
 Storm features
 ==============
 
 =============== ====================================================================
 Feature         Description
 =============== ====================================================================
-Speed           1,000,000 tuples per second per node, using Kyro and Netty
+Speed           1,000,000 tuples per second per node, using Kryo and Netty
 Fault Tolerance Workers and Storm management daemons self-heal in face of failure
 Parallelism     Tasks run on cluster w/ tuneable parallelism
 Guaranteed Msgs Tracks lineage of data tuples, providing an at-least-once guarantee
@@ -305,18 +388,27 @@ Easy Code Mgmt  Several versions of code in a cluster; multiple languages suppor
 Local Dev       Entire system can run in "local mode" for end-to-end testing
 =============== ====================================================================
 
+.. note::
+
+    * Tuples are...
+    * Don't foget local dev!
+        * Local dev line item is cut off in presenter view.
+
 Storm core concepts
 ===================
 
 =============== =======================================================================
 Concept         Description
 =============== =======================================================================
-Stream          Unbounded sequence of data tuples with named fields
-Spout           A source of a Stream of tuples; typically reading from Kafka
-Bolt            Computation steps that consume Streams and emits new Streams
-Grouping        Way of partitioning data fed to a Bolt; for example: by field, shuffle
-Topology        Directed Acyclic Graph (DAG) describing Spouts, Bolts, & Groupings
+Tuple           An individual message passed between nodes in the topology.
+Spout           A source of a stream of tuples; typically reading from Kafka
+Bolt            Computation steps that consume streams and emits new streams
+Topology        Directed Acyclic Graph (DAG) describing Spouts and Bolts
 =============== =======================================================================
+
+.. note::
+
+    * Tuples *can* but Python tuples, but don't have to be. Just a list of values.
 
 Wired Topology
 ==============
@@ -349,6 +441,10 @@ Avoid Java, use Python!
     $ sparse list
     $ sparse kill -n my_topology
 
+.. note::
+
+    * We're working on replacing the Clojure
+
 
 A Simple Spout
 ==============
@@ -368,6 +464,11 @@ A Simple Spout
         def next_tuple(self):
             word = next(self.words)
             self.emit([word])
+
+.. note::
+
+    * This is part of a classic wordcount example
+    * Just going to emit words and count them. I don't know why.
 
 
 A Simple Bolt
@@ -418,6 +519,11 @@ The Topology Definition
     )
 
 
+.. note::
+
+    * Stop here for live demo
+
+
 Putting It All Together
 =======================
 
@@ -451,18 +557,13 @@ Go forth and stream!
 
 Parse.ly:
 
-* http://parse.ly
+* http://parsely.com/code
 * http://twitter.com/parsely
-
-Projects
-
-* http://github.com/parsely/pykafka
-* http://github.com/parsely/streamparse
-* http://www.parsely.com/code/
 
 Me:
 
-* http://twitter.com/kbourgoin
+* keith@parsely.com
+* Twitter: @kbourgoin
 
 .. ifnotslides::
 
